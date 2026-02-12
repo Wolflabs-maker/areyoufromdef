@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WOLF LABS | Identity & Origins Engine</title>
+    <style>
+        /* --- DESIGN SYSTEM: WOLF GLASS PREMIUM (SYSTEM FONTS ONLY) --- */
+        :root {
+            --wolf-green: #00ff9d;
+            --wolf-green-glow: rgba(0, 255, 157, 0.4);
+            --bg-dark: #050608;
+            --glass: rgba(20, 22, 26, 0.75);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-main: #ffffff;
+            --text-muted: #94a3b8;
+            --error: #ff4757;
+            --spacing: 8px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background-image: 
+                radial-gradient(circle at 5% 5%, rgba(0, 255, 157, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 95% 95%, rgba(0, 255, 157, 0.03) 0%, transparent 40%);
+        }
+
+        /* --- HUD & TOPBAR --- */
+        .hud {
+            padding: calc(var(--spacing) * 2) calc(var(--spacing) * 3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--glass-border);
+            background: rgba(0,0,0,0.3);
+            z-index: 100;
+        }
+
+        .brand { font-weight: 900; letter-spacing: -1px; font-size: 1.1rem; text-transform: uppercase; }
+        .brand span { color: var(--wolf-green); }
+
+        .xp-display { font-family: ui-monospace, monospace; font-size: 14px; color: var(--wolf-green); font-weight: bold; }
+
+        /* --- SKILL TREE --- */
+        .skill-tree {
+            display: flex;
+            justify-content: center;
+            gap: calc(var(--spacing) * 1.5);
+            padding: calc(var(--spacing) * 1.5);
+            background: rgba(0,0,0,0.1);
+        }
+
+        .node {
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border: 1px solid var(--glass-border);
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: var(--glass);
+        }
+
+        .node.unlocked { color: white; border-color: rgba(255,255,255,0.3); }
+        .node.active { border-color: var(--wolf-green); color: var(--wolf-green); box-shadow: 0 0 15px var(--wolf-green-glow); transform: scale(1.05); }
+        .node.locked { opacity: 0.2; cursor: not-allowed; }
+
+        /* --- VIEWPORT PRINCIPAL --- */
+        .viewport {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glass-panel {
+            width: 100%;
+            max-width: 1000px;
+            height: 100%;
+            max-height: 480px;
+            background: var(--glass);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid var(--glass-border);
+            border-radius: 32px;
+            display: flex;
+            flex-direction: column;
+            padding: 40px;
+            position: relative;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+        }
+
+        /* Fallback */
+        @supports not (backdrop-filter: blur(14px)) {
+            .glass-panel { background: rgba(30, 33, 40, 0.98); }
+        }
+
+        .stage-tag { font-size: 10px; font-weight: 900; color: var(--wolf-green); text-transform: uppercase; letter-spacing: 4px; margin-bottom: 12px; }
+        .question-h { font-size: 2.8rem; font-weight: 800; line-height: 1.1; margin-bottom: 10px; letter-spacing: -1.5px; }
+        .trans-sub { color: var(--text-sub); font-style: italic; font-size: 1.1rem; margin-bottom: 30px; }
+
+        /* --- INTERAÇÕES --- */
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            width: 100%;
+        }
+
+        .btn-opt {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--glass-border);
+            padding: 22px;
+            border-radius: 18px;
+            color: white;
+            font-size: 1.2rem;
+            font-weight: 700;
+            text-align: left;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn-opt:hover { border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.06); }
+        .btn-opt.correct { border-color: var(--wolf-green); background: rgba(0, 255, 157, 0.1); color: var(--wolf-green); }
+        .btn-opt.wrong { border-color: var(--error); background: rgba(255, 71, 87, 0.1); color: var(--error); }
+
+        /* --- SPEAKING HUB (RESERVADO) --- */
+        .speaking-hub {
+            padding: 24px 40px;
+            background: #0a0a0c;
+            border-top: 1px solid #1a1a1c;
+            border-left: 8px solid var(--wolf-green);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 110px;
+            z-index: 50;
+        }
+
+        .starter-box { display: flex; flex-direction: column; gap: 4px; }
+        .starter-label { font-size: 9px; font-weight: 900; color: var(--wolf-green); text-transform: uppercase; letter-spacing: 2px; }
+        .starter-text { font-size: 1.6rem; font-weight: 800; color: white; letter-spacing: -0.5px; }
+
+        .btn-next {
+            background: var(--wolf-green);
+            color: black;
+            font-weight: 900;
+            padding: 12px 28px;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            border: none;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 0 20px var(--wolf-green-glow);
+            display: none;
+        }
+        .btn-next.visible { display: block; animation: fadeIn 0.3s ease; }
+
+        /* --- TEACHER PANEL --- */
+        .t-toggle { position: fixed; top: 20px; right: 20px; z-index: 200; cursor: pointer; background: #222; padding: 8px; border-radius: 8px; opacity: 0.4; }
+        .t-toggle:hover { opacity: 1; }
+
+        #t-panel {
+            position: fixed; top: 70px; right: 20px; z-index: 200;
+            background: #111; border: 1px solid #333; border-radius: 12px; padding: 15px;
+            display: none; flex-direction: column; gap: 8px; width: 180px;
+        }
+        .t-btn { background: #222; border: 1px solid #444; color: #eee; padding: 8px; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; text-align: left; }
+
+        /* --- OVERLAYS --- */
+        .overlay { position: fixed; inset: 0; background: var(--bg-dark); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .btn-start { background: var(--wolf-green); color: black; font-weight: 900; padding: 20px 50px; border-radius: 50px; font-size: 1.4rem; cursor: pointer; border: none; box-shadow: 0 0 30px var(--wolf-green-glow); }
+
+        /* --- SYSTEM CHECK --- */
+        .sys-footer { position: fixed; bottom: 5px; left: 10px; font-size: 8px; color: #1a1a1a; pointer-events: none; }
+
+        /* --- ANIMATIONS --- */
+        .fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <!-- BOOT SCREEN -->
+    <div id="boot-screen" class="overlay">
+        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="var(--wolf-green)" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        <h1 style="margin-top: 20px;">WOLF <span style="color:var(--wolf-green)">LABS</span></h1>
+        <p style="color: var(--text-muted); letter-spacing: 5px; font-size: 0.7rem; font-weight: bold; text-transform: uppercase;">Identity & Origins Engine</p>
+        <button class="btn-start" style="margin-top: 40px;" onclick="Engine.init()">ACCESS LABORATORY</button>
+    </div>
+
+    <!-- HUD -->
+    <div class="hud">
+        <div class="brand">WOLF <span>OS</span></div>
+        <div class="xp-display">TOTAL XP: <span id="xp-val">0000</span></div>
+    </div>
+
+    <!-- SKILL TREE -->
+    <div class="skill-tree" id="skill-tree">
+        <div class="node active" id="n1">01. Identity</div>
+        <div class="node locked" id="n2">02. Origins</div>
+        <div class="node locked" id="n3">03. Shift</div>
+        <div class="node locked" id="n4">04. Talk Lab</div>
+    </div>
+
+    <!-- MAIN -->
+    <main class="viewport">
+        <div class="glass-panel fade-in" id="stage-panel">
+            <!-- Dynamic Content -->
+        </div>
+    </main>
+
+    <!-- SPEAKING HUB -->
+    <div class="speaking-hub" id="hub">
+        <div class="starter-box">
+            <span class="starter-label" id="hub-label">Speaking Starter</span>
+            <div class="starter-text" id="hub-phrase">"Waiting for data..."</div>
+        </div>
+        <button class="btn-next" id="next-btn" onclick="Engine.nextQuestion()">Next Protocol</button>
+    </div>
+
+    <!-- TEACHER PANEL -->
+    <div class="t-toggle" onclick="Engine.toggleTeacher()">⚙️</div>
+    <div id="t-panel">
+        <p style="font-size: 9px; color: var(--wolf-green); text-align: center; margin-bottom: 5px;">TEACHER MODE</p>
+        <button class="t-btn" onclick="Engine.revealAnswer()">Show Answer</button>
+        <button class="t-btn" onclick="Engine.skipStage()">Skip Stage</button>
+        <button class="t-btn" onclick="Engine.resetData()">Reset Data</button>
+    </div>
+
+    <!-- SYSTEM CHECK -->
+    <div class="sys-footer" id="sys-check">SYSTEM: INITIALIZING...</div>
+
+    <script>
+        /* --- ENGINE CORE --- */
+        const Engine = {
+            xp: parseInt(localStorage.getItem('wolf_xp')) || 0,
+            stage: parseInt(localStorage.getItem('wolf_stage')) || 1,
+            qIdx: 0,
+            
+            // --- BANCO DE DADOS (30+ ITENS) ---
+            db: [
+                // STAGE 1: IDENTITY (8 items)
+                { s: 1, type: "choice", cat: "IDENTITY", q: "Complete: I ___ Tim.", opts: ["am", "is"], ans: "am", starter: "I am Tim.", trans: "Eu sou o Tim." },
+                { s: 1, type: "choice", cat: "IDENTITY", q: "Contraction: 'She is' becomes...", opts: ["She's", "She is's"], ans: "She's", starter: "She's Alex.", trans: "Ela é a Alex." },
+                { s: 1, type: "choice", cat: "AGE LOGIC", q: "I ___ 25 years old.", opts: ["am", "have"], ans: "am", starter: "I am 25.", trans: "Eu tenho 25 anos." },
+                { s: 1, type: "choice", cat: "IDENTITY", q: "Question: '___ you ready?'", opts: ["Are", "Is"], ans: "Are", starter: "Are you ready?", trans: "Você está pronto?" },
+                { s: 1, type: "choice", cat: "NEGATION", q: "Negative: 'He ___ not here.'", opts: ["is", "am"], ans: "is", starter: "He is not here.", trans: "Ele não está aqui." },
+                { s: 1, type: "choice", cat: "SHORT ANSWER", q: "'Are you Sian?'", opts: ["Yes, I am.", "Yes, I's."], ans: "Yes, I am.", starter: "Yes, I am.", trans: "Sim, eu sou." },
+                { s: 1, type: "choice", cat: "GENDER", q: "Tim is a man. ___ name is Tim.", opts: ["His", "Her"], ans: "His", starter: "His name is Tim.", trans: "O nome dele é Tim." },
+                { s: 1, type: "choice", cat: "GENDER", q: "Sian is a woman. ___ name is Sian.", opts: ["His", "Her"], ans: "Her", starter: "Her name is Sian.", trans: "O nome dela é Sian." },
+
+                // STAGE 2: ORIGINS (8 items)
+                { s: 2, type: "choice", cat: "ORIGINS", q: "Where ___ you from?", opts: ["is", "are"], ans: "are", starter: "Where are you from?", trans: "De onde você é?" },
+                { s: 2, type: "choice", cat: "ORIGINS", q: "I'm ___ Brazil.", opts: ["from", "at"], ans: "from", starter: "I'm from Brazil.", trans: "Eu sou do Brasil." },
+                { s: 2, type: "choice", cat: "PLACES", q: "He is from ___ (Tóquio).", opts: ["Tokyo", "Japan"], ans: "Tokyo", starter: "He is from Tokyo.", trans: "Ele é de Tóquio." },
+                { s: 2, type: "choice", cat: "ORIGINS", q: "She is from ___ UK.", opts: ["the", "a"], ans: "the", starter: "She is from the UK.", trans: "Ela é do Reino Unido." },
+                { s: 2, type: "choice", cat: "NEGATION", q: "Negative: 'They ___ from China.'", opts: ["aren't", "no are"], ans: "aren't", starter: "They aren't from China.", trans: "Eles não são da China." },
+                { s: 2, type: "choice", cat: "LOGIC", q: "Japanese is a...", opts: ["Country", "Nationality"], ans: "Nationality", starter: "Japanese is a nationality.", trans: "Japonês é uma..." },
+                { s: 2, type: "choice", cat: "QUESTION", q: "___ he from London?", opts: ["Is", "Am"], ans: "Is", starter: "Is he from London?", trans: "Ele é de Londres?" },
+                { s: 2, type: "choice", cat: "MIX", q: "Is he from Oxford? No, he ___.", opts: ["isn't", "not"], ans: "isn't", starter: "No, he isn't.", trans: "Não, ele não é." },
+
+                // STAGE 3: SHIFT (6 items)
+                { s: 3, type: "choice", cat: "THE SHIFT", q: "I'm FROM Brazil, but I ___ in London.", opts: ["live", "am live"], ans: "live", starter: "I live in London.", trans: "Eu moro em Londres." },
+                { s: 3, type: "choice", cat: "S-RULE", q: "He ___ in Tokyo.", opts: ["live", "lives"], ans: "lives", starter: "He lives in Tokyo.", trans: "Ele mora em Tóquio." },
+                { s: 3, type: "choice", cat: "S-RULE", q: "She ___ in São Paulo.", opts: ["live", "lives"], ans: "lives", starter: "She lives in São Paulo.", trans: "Ela mora em São Paulo." },
+                { s: 3, type: "choice", cat: "VOCAB", q: "I live in a ___ (Apartamento).", opts: ["flat", "house"], ans: "flat", starter: "I live in a flat.", trans: "Eu moro em um..." },
+                { s: 3, type: "choice", cat: "LIFESTYLE", q: "I live ___ my own.", opts: ["on", "with"], ans: "on", starter: "I live on my own.", trans: "Eu moro sozinho." },
+                { s: 3, type: "choice", cat: "LIFESTYLE", q: "He lives ___ his family.", opts: ["with", "on"], ans: "with", starter: "He lives with his family.", trans: "Ele mora com a família." },
+
+                // STAGE 4: TALK LAB (DNA) (6 items)
+                { s: 4, type: "dna", cat: "IDENTITY", q: "What is your name?", starter: "My name is... / I am...", trans: "Qual seu nome?" },
+                { s: 4, type: "dna", cat: "AGE", q: "How old are you?", starter: "I am [number] years old.", trans: "Quantos anos você tem?" },
+                { s: 4, type: "dna", cat: "ORIGINS", q: "Where are you from?", starter: "I am from [City/Country].", trans: "De onde você é?" },
+                { s: 4, type: "dna", cat: "LIFESTYLE", q: "Do you live in a house or flat?", starter: "I live in a...", trans: "Casa ou apartamento?" },
+                { s: 4, type: "dna", cat: "COMPANY", q: "Who do you live with?", starter: "I live with... / I live on my own.", trans: "Com quem você mora?" },
+                { s: 4, type: "dna", cat: "FINAL", q: "Are you ready to speak English?", starter: "Yes, I am ready!", trans: "Você está pronto?" }
+            ],
+
+            init() {
+                document.getElementById('boot-screen').classList.add('hidden');
+                this.updateUI();
+                this.load();
+                this.selfCheck();
+            },
+
+            updateUI() {
+                localStorage.setItem('wolf_xp', this.xp);
+                localStorage.setItem('wolf_stage', this.stage);
+                document.getElementById('xp-val').innerText = this.xp.toString().padStart(4, '0');
+                
+                const nodes = [1, 2, 3, 4];
+                nodes.forEach(n => {
+                    const el = document.getElementById('n' + n);
+                    el.className = "node";
+                    if (n === this.stage) el.classList.add('active');
+                    else if (n < this.stage) el.classList.add('unlocked');
+                    else el.classList.add('locked');
+                    
+                    el.onclick = () => { if (n <= this.stage) { this.stage = n; this.qIdx = 0; this.load(); this.updateUI(); }};
+                });
+            },
+
+            load() {
+                const panel = document.getElementById('stage-panel');
+                const nextBtn = document.getElementById('next-btn');
+                const hub = document.getElementById('hub');
+                
+                nextBtn.classList.remove('visible');
+                const questions = this.db.filter(q => q.s === this.stage);
+                const current = questions[this.qIdx];
+
+                if (!current) {
+                    this.completeStage();
+                    return;
+                }
+
+                // Render Main Content
+                panel.innerHTML = `
+                    <div class="fade-in">
+                        <div class="stage-tag">${current.cat}</div>
+                        <h2 class="question-h">${current.q}</h2>
+                        <p class="trans-sub">${current.trans}</p>
+                        <div id="interaction-zone"></div>
+                    </div>
+                `;
+
+                const zone = document.getElementById('interaction-zone');
+
+                if (current.type === "choice") {
+                    zone.className = "options-grid";
+                    current.opts.forEach(o => {
+                        const b = document.createElement('button');
+                        b.className = "btn-opt";
+                        b.innerHTML = `<span>•</span> ${o}`;
+                        b.onclick = () => this.check(o, current);
+                        zone.appendChild(b);
+                    });
+                    document.getElementById('hub-phrase').innerText = "Select an option first...";
+                } else {
+                    // DNA Mode
+                    zone.innerHTML = `<div class="card dna">
+                        <p style="font-size: 1.2rem; color: var(--wolf-green); font-weight: bold; margin-bottom: 10px;">Interação Oral</p>
+                        <p>Responda ao professor usando o starter abaixo.</p>
+                    </div>`;
+                    document.getElementById('hub-phrase').innerText = `"${current.starter}"`;
+                    nextBtn.classList.add('visible');
+                }
+            },
+
+            check(val, current) {
+                const btns = document.querySelectorAll('.btn-opt');
+                btns.forEach(b => b.disabled = true);
+                
+                const isCorrect = val === current.ans;
+                btns.forEach(b => {
+                    if (b.innerText.includes(current.ans)) b.classList.add('correct');
+                    if (b.innerText.includes(val) && !isCorrect) b.classList.add('wrong');
+                });
+
+                if (isCorrect) {
+                    this.xp += 100;
+                    this.updateUI();
+                    document.getElementById('hub-phrase').innerText = `"${current.starter}"`;
+                    document.getElementById('next-btn').classList.add('visible');
+                } else {
+                    setTimeout(() => {
+                        btns.forEach(b => {
+                            b.disabled = false;
+                            b.classList.remove('wrong', 'correct');
+                        });
+                    }, 1500);
+                }
+            },
+
+            nextQuestion() {
+                this.qIdx++;
+                this.load();
+            },
+
+            completeStage() {
+                if (this.stage < 4) {
+                    this.stage++;
+                    this.qIdx = 0;
+                    this.updateUI();
+                    this.load();
+                } else {
+                    document.getElementById('stage-panel').innerHTML = `
+                        <div class="fade-in" style="text-align:center;">
+                            <h1 class="highlight">MISSION COMPLETE</h1>
+                            <p style="margin-top:20px;">You are ready for the next level.</p>
+                            <button class="btn-start" style="margin-top:30px;" onclick="location.reload()">REBOOT</button>
+                        </div>
+                    `;
+                    document.getElementById('hub').classList.add('hidden');
+                }
+            },
+
+            /* --- TEACHER TOOLS --- */
+            toggleTeacher() {
+                const p = document.getElementById('t-panel');
+                p.style.display = p.style.display === 'flex' ? 'none' : 'flex';
+            },
+            revealAnswer() {
+                const questions = this.db.filter(q => q.s === this.stage);
+                alert("Answer: " + questions[this.qIdx].ans);
+            },
+            skipStage() { this.completeStage(); },
+            resetData() { localStorage.clear(); location.reload(); },
+
+            /* --- SYSTEM CHECK --- */
+            selfCheck() {
+                const checks = [
+                    { name: "Static", pass: !document.querySelector('script[type="module"]') },
+                    { name: "No CDN CSS", pass: !document.querySelector('link[rel="stylesheet"][href^="http"]') },
+                    { name: "Storage", pass: !!window.localStorage }
+                ];
+                document.getElementById('sys-check').innerHTML = checks.map(c => (c.pass ? '✅' : '❌') + ' ' + c.name).join(' | ');
+            }
+        };
+    </script>
+
+    <!-- GITHUB PAGES GUIDE (HIDDEN) -->
+    <div class="hidden">
+        COMO PUBLICAR:
+        1. Salve este arquivo como index.html.
+        2. Crie um repositório no GitHub.
+        3. Faça upload do index.html na raiz (main branch).
+        4. Vá em Settings > Pages e selecione a branch Main.
+        5. O link aparecerá em instantes.
+    </div>
+</body>
+</html>
